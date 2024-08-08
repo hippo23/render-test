@@ -1,6 +1,8 @@
 const express = require('express')
 const app = express()
 
+app.use(express.json())
+
 let data = [
     { 
       "id": "1",
@@ -24,8 +26,62 @@ let data = [
     }
 ]
 
+const generateId = () => {
+  const id = data.length > 0 ? Math.max(...data.map(x => Number(x.id))) : 0
+  return String(id + 1)
+}
+
 app.get('/api/persons', (request, response) => {
   response.json(data)
+})
+
+app.get('/api/info', (request, response) => {
+  var time = new Date().toLocaleTimeString()
+  var no_requests = data.length
+  response.send('<p> Phonebook has info for ' + no_requests + ' people </p> <p>' + time + '</p>')
+})
+
+app.get('/api/persons/:id', (request, response) => {
+  const person = data.find((x) => x.id == request.params.id)
+  if (person) {
+    response.json(person)
+  } else {
+    response.status(400).json({
+      error: 'no person with matching ID found'
+    })
+  }
+})
+
+app.post('/api/persons', (request, response) => {
+  const body = request.body
+  console.log(body)
+
+  if (!body.name || !body.number) {
+    return response.status(400).json({
+      error: 'missing info'
+    })
+  }
+
+  if (data.map(x => x.name).includes(body.name)) {
+    return response.status(400).json({
+      error: 'name is already in phonebook'
+    })
+  }
+
+  const note = {
+    id: generateId(),
+    name: body.name,
+    number: body.number
+  }
+
+  data = data.concat(note)
+
+  response.json(note)
+})
+
+app.delete('/api/persons/:id', (request, response) => {
+  data = data.filter((x) => x.id !== request.params.id)
+  response.status(204).end()
 })
 
 const PORT = 3001
