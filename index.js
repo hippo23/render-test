@@ -1,6 +1,28 @@
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const mongoose = require('moongose')
+
+if (process.argv.length<3) {
+  console.log('give password as argument')
+  process.exit(1)
+}
+
+const password = process.argv[2]
+
+const url =
+  `mongodb+srv://simonmagleo23:${password}@phonebook.1t7pg.mongodb.net/?retryWrites=true&w=majority&appName=phonebook`
+
+mongoose.set('strictQuery',false)
+
+mongoose.connect(url)
+
+const personSchema = new mongoose.Schema({
+  username: String,
+  number: String,
+})
+
+const Person = mongoose.model('Note', personSchema)
 
 const app = express()
 
@@ -51,7 +73,9 @@ const generateId = () => {
 }
 
 app.get('/api/persons', (request, response) => {
-  response.json(data)
+  Person.find ({}).then(people => {
+    response.json(people)
+  })
 })
 
 app.get('/api/info', (request, response) => {
