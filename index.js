@@ -1,14 +1,9 @@
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
-const mongoose = require('moongose')
+const mongoose = require('mongoose')
 
-if (process.argv.length<3) {
-  console.log('give password as argument')
-  process.exit(1)
-}
-
-const password = process.argv[2]
+const password = 'hipboi_24'
 
 const url =
   `mongodb+srv://simonmagleo23:${password}@phonebook.1t7pg.mongodb.net/?retryWrites=true&w=majority&appName=phonebook`
