@@ -4,6 +4,8 @@
   "description": "For Helsinki Coding Practice",
   "main": "index.js",
   "scripts": {
+    "build:ui": "rm -rf dist && cd ../frontend_exercise3/phonebook && npm run build && cp -r dist ../../exercise3",
+    "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js"
   },
