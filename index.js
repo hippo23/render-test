@@ -1,11 +1,15 @@
 const express = require('express')
 const morgan = require('morgan')
+const cors = require('cors')
+
 const app = express()
 
 morgan.token('body', function getBody (req) {
   return JSON.stringify(req.body)
 })
 
+app.use(express.static('dist'))
+app.use(cors())
 app.use(express.json())
 app.use(morgan(function (tokens, req, res) {
   return [
@@ -69,7 +73,6 @@ app.get('/api/persons/:id', (request, response) => {
 
 app.post('/api/persons', (request, response) => {
   const body = request.body
-  console.log(body)
 
   if (!body.name || !body.number) {
     return response.status(400).json({
@@ -94,7 +97,48 @@ app.post('/api/persons', (request, response) => {
   response.json(note)
 })
 
+app.put('/api/persons/:id', (request, response) => {
+  const person = data.find((x) => x.id == request.params.id)
+  const body = request.body
+
+  if (!person) {
+    return response.status(400).json({
+      error: 'There is no person with that ID in the database'
+    }) 
+  }
+
+  if (!body.name || !body.number) {
+    return response.status(400).json({
+      error: 'missing info'
+    })
+  }
+
+  if (data.filter(x => x.id !== request.params.id).map(x => x.name).includes(body.name)) {
+    return response.status(400).json({
+      error: 'name is already in phonebook'
+    })
+  }
+
+  updatedPerson = {
+    id: request.params.id,
+    name: body.name,
+    number: body.number
+  }
+
+  data = data.map((person) => person.id !== request.params.id ? person : updatedPerson)
+
+  response.json(updatedPerson)
+})
+
 app.delete('/api/persons/:id', (request, response) => {
+  const person = data.find((x) => x.id == request.params.id)
+
+  if (!person) {
+    return response.status(400).json({
+      error: 'There is no person with that ID in the database'
+    }) 
+  }
+
   data = data.filter((x) => x.id !== request.params.id)
   response.status(204).end()
 })
