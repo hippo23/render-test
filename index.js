@@ -1,25 +1,10 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
-const mongoose = require('mongoose')
-
-const password = 'hipboi_24'
-
-const url =
-  `mongodb+srv://simonmagleo23:${password}@phonebook.1t7pg.mongodb.net/?retryWrites=true&w=majority&appName=phonebook`
-
-mongoose.set('strictQuery',false)
-
-mongoose.connect(url)
-
-const personSchema = new mongoose.Schema({
-  username: String,
-  number: String,
-})
-
-const Person = mongoose.model('Note', personSchema)
 
 const app = express()
+const Person = require('./models/person')
 
 morgan.token('body', function getBody (req) {
   return JSON.stringify(req.body)
@@ -62,35 +47,43 @@ let data = [
     }
 ]
 
-const generateId = () => {
-  const id = data.length > 0 ? Math.max(...data.map(x => Number(x.id))) : 0
-  return String(id + 1)
-}
-
-app.get('/api/persons', (request, response) => {
-  Person.find ({}).then(people => {
+app.get('/api/persons', async (request, response) => {
+  Person.find({}).then(people => {
     response.json(people)
   })
 })
 
-app.get('/api/info', (request, response) => {
+app.get('/api/info', async (request, response) => {
   var time = new Date().toLocaleTimeString()
-  var no_requests = data.length
+  var no_requests = await Person.estimatedDocumentCount()
   response.send('<p> Phonebook has info for ' + no_requests + ' people </p> <p>' + time + '</p>')
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const person = data.find((x) => x.id == request.params.id)
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(400).json({
-      error: 'no person with matching ID found'
+// app.get('/api/persons/:name', (request, response) => {
+//   Person.find({ username: request.params.name }).then(person => {
+//     if (person) {
+//       response.json(person)
+//     } else {
+//       response.status(400).json({
+//         error: 'no person with matching name found'
+//       })
+//     }
+//   })
+// })
+
+app.get('/api/persons/:id', (request, response, next) => {
+  Person.findById(request.params.id)
+    .then(person => {
+      if (person) {
+        response.json(person)
+      } else {
+        response.status(404).end()
+      }
     })
-  }
+    .catch(error => next(error))
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', async (request, response, next) => {
   const body = request.body
 
   if (!body.name || !body.number) {
@@ -99,32 +92,26 @@ app.post('/api/persons', (request, response) => {
     })
   }
 
-  if (data.map(x => x.name).includes(body.name)) {
-    return response.status(400).json({
-      error: 'name is already in phonebook'
-    })
-  }
+  Person.findOne({ username: body.name}).then(person => {
+    if (person) {
+      person.number = body.number
+      person.save({validateBeforeSave: true}).then(updatedPerson => response.json(updatedPerson))
+      .catch(error => next(error))
+    } else {
+      const person = new Person({
+        username: body.name,
+        number: body.number
+      })
 
-  const note = {
-    id: generateId(),
-    name: body.name,
-    number: body.number
-  }
-
-  data = data.concat(note)
-
-  response.json(note)
+      person.save().then(savedPerson => {
+        response.json(savedPerson)
+      }).catch(error => next(error))
+    }
+  })
 })
 
-app.put('/api/persons/:id', (request, response) => {
-  const person = data.find((x) => x.id == request.params.id)
+app.put('/api/persons/:id', async (request, response, next) => {
   const body = request.body
-
-  if (!person) {
-    return response.status(400).json({
-      error: 'There is no person with that ID in the database'
-    }) 
-  }
 
   if (!body.name || !body.number) {
     return response.status(400).json({
@@ -132,34 +119,42 @@ app.put('/api/persons/:id', (request, response) => {
     })
   }
 
-  if (data.filter(x => x.id !== request.params.id).map(x => x.name).includes(body.name)) {
-    return response.status(400).json({
-      error: 'name is already in phonebook'
-    })
-  }
+  Person.findOne({username: body.name, _id: {$ne: request.params.id}}).then((person) => {
+    if (person) {
+      return response.status(400).json({
+        error: 'There is already a person in this database with the updated name'
+      })
+    } else {
+      Person.findOne({_id: request.params.id.toString()}).then(person => {
+        if (!person) {
+          return response.status(400).json({
+            error: 'There is no person with that ID in the database'
+          }) 
+        }
+        person.username = body.name
+        person.number = body.number
 
-  updatedPerson = {
-    id: request.params.id,
-    name: body.name,
-    number: body.number
-  }
 
-  data = data.map((person) => person.id !== request.params.id ? person : updatedPerson)
+        person.save({validateBeforeSave: true}).then(updatedPerson => {
+          response.json(updatedPerson)
+        }).catch(error => next(error))
+      })
+    }
+  }).catch(error => next(error))
 
-  response.json(updatedPerson)
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-  const person = data.find((x) => x.id == request.params.id)
-
-  if (!person) {
-    return response.status(400).json({
-      error: 'There is no person with that ID in the database'
-    }) 
-  }
-
-  data = data.filter((x) => x.id !== request.params.id)
-  response.status(204).end()
+app.delete('/api/persons/:id', async (request, response, next) => {
+  Person.findByIdAndDelete({_id: request.params.id}).then(person => {
+    if (person) {
+      return response.json(person)
+    } else {
+      console.log('hatdog')
+      return response.status(404).send({ error: 'Person does not exist in the database'})
+    }
+  }).catch(error => {
+      next(error)
+    })
 })
 
 const unknownEndpoint = (request, response) => {
@@ -168,7 +163,21 @@ const unknownEndpoint = (request, response) => {
 
 app.use(unknownEndpoint)
 
-const PORT = 3001
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
