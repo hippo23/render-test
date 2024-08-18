@@ -12,7 +12,13 @@
   "author": "Simon Magleo",
   "license": "ISC",
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@eslint/js": "^9.9.0",
+    "@stylistic/eslint-plugin-js": "^2.6.4",
+    "eslint": "^9.9.0",
+    "eslint-plugin-react": "^7.35.0",
+    "globals": "^15.9.0",
+    "nodemon": "^3.1.4",
+    "prettier": "3.3.3"
   },
   "dependencies": {
     "cors": "^2.8.5",
